@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Music Player</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Global Music Player</h1>
+        
+        <div class="player-section">
+            <div class="now-playing">Now Playing</div>
+            <div class="song-title" id="currentSong">Add a song to get started!</div>
+            
+            <div class="controls">
+                <button class="control-btn" id="prevBtn">⏮️</button>
+                <button class="control-btn" id="playBtn">▶️</button>
+                <button class="control-btn" id="nextBtn">⏭️</button>
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            
+            <div class="time-display">
+                <span id="currentTime">0:00</span>
+                <span id="totalTime">0:00</span>
+            </div>
+        </div>
+        
+        <div class="add-song-section">
+            <h2>Add a Song</h2>
+            <div class="input-group">
+                <label for="songName">Song Name</label>
+                <input type="text" id="songName" placeholder="Enter song name">
+            </div>
+            <div class="input-group">
+                <label for="artistName">Artist</label>
+                <input type="text" id="artistName" placeholder="Enter artist name">
+            </div>
+            <button class="add-btn" id="addSongBtn">Add to Queue</button>
+        </div>
+        
+        <div class="playlist">
+            <h2>Global Playlist</h2>
+            <div id="playlistContainer">
+                <!-- Playlist items will be added here -->
+            </div>
+            <div class="stats">
+                <span id="totalSongs">0</span> songs in queue
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
