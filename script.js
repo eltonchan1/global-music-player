@@ -100,7 +100,7 @@ class GlobalMusicPlayer {
     async searchYouTube(query) {
         console.log(`Searching: ${query}`);
         try {
-            const response = await fetch('https://global-music-player.onrender.com', {
+            const response = await fetch('https://global-music-player.onrender.com/api/youtube-search', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
