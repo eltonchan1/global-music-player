@@ -6,17 +6,22 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
+// Temporary permissive CORS for testing
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production' 
-        ? ['https://yourdomain.com', 'https://your-frontend-url.com'] // Replace with your frontend URLs
-        : ['http://localhost:3000', 'http://localhost:8080', 'http://127.0.0.1:5500'] // Common local dev ports
+    origin: '*', // Allow all origins temporarily
+    credentials: false,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    optionsSuccessStatus: 200
 }));
+
 app.use(express.json());
 
 // Add request logging
 app.use((req, res, next) => {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    console.log('Headers:', req.headers);
+    if (req.body) console.log('Body:', req.body);
     next();
 });
 
@@ -37,13 +42,17 @@ app.post('/api/youtube-search', async (req, res) => {
     try {
         const { query } = req.body;
         
+        console.log('Received search request for:', query);
+        
         if (!query) {
+            console.error('No query provided');
             return res.status(400).json({ error: 'Query is required' });
         }
 
         const API_KEY = process.env.YOUTUBE_API_KEY;
         
         if (!API_KEY) {
+            console.error('YouTube API key not configured');
             return res.status(500).json({ error: 'YouTube API key not configured' });
         }
 
@@ -78,7 +87,7 @@ app.post('/api/youtube-search', async (req, res) => {
         } else if (error.code === 'ECONNABORTED') {
             res.status(408).json({ error: 'YouTube API timeout' });
         } else {
-            res.status(500).json({ error: 'YouTube search failed' });
+            res.status(500).json({ error: 'YouTube search failed', details: error.message });
         }
     }
 });
@@ -89,7 +98,8 @@ app.get('/health', (req, res) => {
         status: 'OK', 
         message: 'Music Player Backend is running',
         timestamp: new Date().toISOString(),
-        uptime: process.uptime()
+        uptime: process.uptime(),
+        youtubeApiConfigured: !!process.env.YOUTUBE_API_KEY
     });
 });
 
@@ -108,4 +118,6 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`YouTube API Key configured: ${!!process.env.YOUTUBE_API_KEY}`);
+    console.log(`YouTube API Key exists: ${process.env.YOUTUBE_API_KEY ? 'YES' : 'NO'}`);
+    console.log(`YouTube API Key length: ${process.env.YOUTUBE_API_KEY ? process.env.YOUTUBE_API_KEY.length : 0}`);
 });
