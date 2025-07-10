@@ -10,6 +10,12 @@
     <div class="container">
         <h1>🎵 Global Music Player</h1>
         
+        <!-- Connection Status -->
+        <div class="connection-status" id="connectionStatus">
+            <span id="statusText">Connecting...</span>
+            <span id="statusDot" class="status-dot connecting"></span>
+        </div>
+        
         <div class="player-section">
             <div class="now-playing">Now Playing</div>
             <div class="song-title" id="currentSong">Add a song to get started!</div>
@@ -52,6 +58,9 @@
                 <span id="totalSongs">0</span> songs in queue
             </div>
         </div>
+        
+        <!-- Error Messages -->
+        <div class="error-message" id="errorMessage" style="display: none;"></div>
     </div>
 
     <script src="script.js"></script>
