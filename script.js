@@ -1,4 +1,4 @@
-// Updated GlobalMusicPlayer class with WebSocket synchronization
+// Enhanced GlobalMusicPlayer class with better error handling and offline fallback
 
 class GlobalMusicPlayer {
     constructor() {
@@ -12,11 +12,16 @@ class GlobalMusicPlayer {
         this.playerReady = false;
         this.useYouTube = false;
         this.socket = null;
-        this.isInitiator = false; // Track if this client initiated an action
+        this.isInitiator = false;
         this.serverUrl = 'https://global-music-player.onrender.com';
+        this.isConnected = false;
+        this.offlineMode = false;
+        this.connectionRetryCount = 0;
+        this.maxRetries = 3;
 
         this.initializeElements();
         this.bindEvents();
+        this.updateConnectionStatus('connecting', 'Connecting...');
         this.initializeWebSocket();
         this.initializePlayer();
     }
@@ -34,6 +39,9 @@ class GlobalMusicPlayer {
         this.addSongBtn = document.getElementById('addSongBtn');
         this.playlistContainer = document.getElementById('playlistContainer');
         this.totalSongsEl = document.getElementById('totalSongs');
+        this.statusTextEl = document.getElementById('statusText');
+        this.statusDotEl = document.getElementById('statusDot');
+        this.errorMessageEl = document.getElementById('errorMessage');
     }
 
     bindEvents() {
@@ -49,79 +57,152 @@ class GlobalMusicPlayer {
         });
     }
 
+    updateConnectionStatus(status, message) {
+        this.statusTextEl.textContent = message;
+        this.statusDotEl.className = `status-dot ${status}`;
+        
+        if (status === 'connected') {
+            this.isConnected = true;
+            this.offlineMode = false;
+            this.connectionRetryCount = 0;
+        } else if (status === 'disconnected') {
+            this.isConnected = false;
+            if (this.connectionRetryCount >= this.maxRetries) {
+                this.offlineMode = true;
+                this.statusTextEl.textContent = 'Offline Mode';
+                this.showMessage('Running in offline mode. Songs will be stored locally.', 'info');
+            }
+        }
+    }
+
+    showMessage(message, type = 'error') {
+        this.errorMessageEl.textContent = message;
+        this.errorMessageEl.className = type === 'error' ? 'error-message' : 'success-message';
+        this.errorMessageEl.style.display = 'block';
+        
+        setTimeout(() => {
+            this.errorMessageEl.style.display = 'none';
+        }, 5000);
+    }
+
     initializeWebSocket() {
-        console.log('Connecting to WebSocket server...');
-        this.socket = io(this.serverUrl);
+        try {
+            console.log('Connecting to WebSocket server...');
+            this.socket = io(this.serverUrl, {
+                timeout: 10000,
+                transports: ['websocket', 'polling']
+            });
 
-        this.socket.on('connect', () => {
-            console.log('Connected to server');
-        });
+            this.socket.on('connect', () => {
+                console.log('Connected to server');
+                this.updateConnectionStatus('connected', 'Connected');
+                this.connectionRetryCount = 0;
+            });
 
-        this.socket.on('disconnect', () => {
-            console.log('Disconnected from server');
-        });
+            this.socket.on('disconnect', () => {
+                console.log('Disconnected from server');
+                this.updateConnectionStatus('disconnected', 'Disconnected');
+                this.handleDisconnection();
+            });
 
-        this.socket.on('sync-state', (state) => {
-            console.log('Received state sync:', state);
-            this.playlist = state.playlist;
-            this.currentSongIndex = state.currentSongIndex;
-            this.isPlaying = state.isPlaying;
-            this.currentTime = state.currentTime;
-            
-            // Calculate current time based on server timestamp
-            if (this.isPlaying && state.lastUpdateTime) {
-                const elapsed = (Date.now() - state.lastUpdateTime) / 1000;
-                this.currentTime += elapsed;
-            }
-            
-            this.updatePlaylist();
-            this.updateCurrentSong();
-            this.updateStats();
-            
-            if (this.currentSongIndex >= 0 && this.playerReady) {
-                this.syncPlayback();
-            }
-        });
+            this.socket.on('connect_error', (error) => {
+                console.error('Connection error:', error);
+                this.connectionRetryCount++;
+                this.updateConnectionStatus('disconnected', `Connection failed (${this.connectionRetryCount}/${this.maxRetries})`);
+                this.handleDisconnection();
+            });
 
-        this.socket.on('playlist-updated', (playlist) => {
-            console.log('Playlist updated:', playlist);
-            this.playlist = playlist;
-            this.updatePlaylist();
-            this.updateStats();
-        });
+            this.socket.on('sync-state', (state) => {
+                console.log('Received state sync:', state);
+                this.syncWithServerState(state);
+            });
 
-        this.socket.on('playback-changed', (data) => {
-            console.log('Playback changed:', data);
-            if (!this.isInitiator) {
-                this.isPlaying = data.isPlaying;
-                this.currentTime = data.currentTime;
-                
-                // Calculate current time based on server timestamp
-                if (this.isPlaying && data.timestamp) {
-                    const elapsed = (Date.now() - data.timestamp) / 1000;
-                    this.currentTime += elapsed;
-                }
-                
-                this.syncPlayback();
-            }
-            this.isInitiator = false;
-        });
-
-        this.socket.on('song-changed', (data) => {
-            console.log('Song changed:', data);
-            if (!this.isInitiator) {
-                this.currentSongIndex = data.currentSongIndex;
-                this.currentTime = data.currentTime;
-                
-                this.updateCurrentSong();
+            this.socket.on('playlist-updated', (playlist) => {
+                console.log('Playlist updated:', playlist);
+                this.playlist = playlist;
                 this.updatePlaylist();
-                
-                if (this.playerReady) {
-                    this.syncPlayback();
+                this.updateStats();
+            });
+
+            this.socket.on('playback-changed', (data) => {
+                console.log('Playback changed:', data);
+                if (!this.isInitiator) {
+                    this.handlePlaybackChange(data);
                 }
-            }
-            this.isInitiator = false;
-        });
+                this.isInitiator = false;
+            });
+
+            this.socket.on('song-changed', (data) => {
+                console.log('Song changed:', data);
+                if (!this.isInitiator) {
+                    this.handleSongChange(data);
+                }
+                this.isInitiator = false;
+            });
+
+        } catch (error) {
+            console.error('WebSocket initialization failed:', error);
+            this.handleDisconnection();
+        }
+    }
+
+    handleDisconnection() {
+        if (this.connectionRetryCount < this.maxRetries) {
+            setTimeout(() => {
+                this.updateConnectionStatus('connecting', 'Reconnecting...');
+                this.initializeWebSocket();
+            }, 2000 * this.connectionRetryCount);
+        } else {
+            this.offlineMode = true;
+            this.updateConnectionStatus('disconnected', 'Offline Mode');
+            this.showMessage('Running in offline mode. Songs will be stored locally.', 'info');
+        }
+    }
+
+    syncWithServerState(state) {
+        this.playlist = state.playlist || [];
+        this.currentSongIndex = state.currentSongIndex || -1;
+        this.isPlaying = state.isPlaying || false;
+        this.currentTime = state.currentTime || 0;
+        
+        // Calculate current time based on server timestamp
+        if (this.isPlaying && state.lastUpdateTime) {
+            const elapsed = (Date.now() - state.lastUpdateTime) / 1000;
+            this.currentTime = Math.max(0, this.currentTime + elapsed);
+        }
+        
+        this.updatePlaylist();
+        this.updateCurrentSong();
+        this.updateStats();
+        
+        if (this.currentSongIndex >= 0 && this.playerReady) {
+            this.syncPlayback();
+        }
+    }
+
+    handlePlaybackChange(data) {
+        this.isPlaying = data.isPlaying;
+        this.currentTime = data.currentTime || 0;
+        
+        // Calculate current time based on server timestamp
+        if (this.isPlaying && data.timestamp) {
+            const elapsed = (Date.now() - data.timestamp) / 1000;
+            this.currentTime = Math.max(0, this.currentTime + elapsed);
+        }
+        
+        this.syncPlayback();
+    }
+
+    handleSongChange(data) {
+        this.currentSongIndex = data.currentSongIndex;
+        this.currentTime = data.currentTime || 0;
+        
+        this.updateCurrentSong();
+        this.updatePlaylist();
+        
+        if (this.playerReady) {
+            this.syncPlayback();
+        }
     }
 
     initializePlayer() {
@@ -130,35 +211,52 @@ class GlobalMusicPlayer {
         playerContainer.style.display = 'none';
         document.body.appendChild(playerContainer);
 
-        window.onYouTubeIframeAPIReady = () => {
-            console.log('YT IFrame API is ready');
-            this.player = new YT.Player('youtube-player', {
-                height: '0',
-                width: '0',
-                playerVars: { autoplay: 0, controls: 0 },
-                events: {
-                    onReady: () => {
-                        console.log('YT Player ready');
-                        this.playerReady = true;
-                        this.useYouTube = true;
-                        
-                        // Sync with current state if available
-                        if (this.currentSongIndex >= 0 && this.playlist.length > 0) {
-                            this.syncPlayback();
-                        }
-                    },
-                    onStateChange: (e) => this.onPlayerStateChange(e),
-                    onError: (e) => {
-                        console.error('YT Player error:', e.data, 'trying next song');
-                        this.handlePlayerError();
-                    }
-                }
-            });
-        };
+        // Initialize without YouTube for now to avoid dependency issues
+        this.playerReady = true;
+        this.useYouTube = false;
+        console.log('Player initialized in simulation mode');
 
-        const tag = document.createElement('script');
-        tag.src = 'https://www.youtube.com/iframe_api';
-        document.body.appendChild(tag);
+        // Try to load YouTube API, but don't block if it fails
+        this.loadYouTubeAPI();
+    }
+
+    loadYouTubeAPI() {
+        try {
+            window.onYouTubeIframeAPIReady = () => {
+                console.log('YT IFrame API is ready');
+                this.player = new YT.Player('youtube-player', {
+                    height: '0',
+                    width: '0',
+                    playerVars: { autoplay: 0, controls: 0 },
+                    events: {
+                        onReady: () => {
+                            console.log('YT Player ready');
+                            this.useYouTube = true;
+                            this.showMessage('YouTube player loaded successfully!', 'success');
+                            
+                            // Sync with current state if available
+                            if (this.currentSongIndex >= 0 && this.playlist.length > 0) {
+                                this.syncPlayback();
+                            }
+                        },
+                        onStateChange: (e) => this.onPlayerStateChange(e),
+                        onError: (e) => {
+                            console.error('YT Player error:', e.data, 'trying next song');
+                            this.handlePlayerError();
+                        }
+                    }
+                });
+            };
+
+            const tag = document.createElement('script');
+            tag.src = 'https://www.youtube.com/iframe_api';
+            tag.onerror = () => {
+                console.log('YouTube API failed to load, continuing in simulation mode');
+            };
+            document.body.appendChild(tag);
+        } catch (error) {
+            console.error('Failed to load YouTube API:', error);
+        }
     }
 
     onPlayerStateChange(event) {
@@ -181,7 +279,7 @@ class GlobalMusicPlayer {
     }
 
     syncPlayback() {
-        if (!this.playerReady || this.currentSongIndex < 0 || this.currentSongIndex >= this.playlist.length) {
+        if (this.currentSongIndex < 0 || this.currentSongIndex >= this.playlist.length) {
             return;
         }
 
@@ -192,7 +290,7 @@ class GlobalMusicPlayer {
             
             this.player.loadVideoById({
                 videoId: song.videoId,
-                startSeconds: this.currentTime
+                startSeconds: Math.max(0, this.currentTime)
             });
             
             if (this.isPlaying) {
@@ -203,13 +301,20 @@ class GlobalMusicPlayer {
         } else {
             // Fallback to simulation mode
             this.totalTime = Math.floor(Math.random() * 120) + 120;
+            this.playBtn.textContent = this.isPlaying ? '⏸️' : '▶️';
             if (this.isPlaying) {
                 this.startProgress();
+            } else {
+                this.stopProgress();
             }
         }
     }
 
     async searchYouTube(query) {
+        if (!this.isConnected) {
+            return null;
+        }
+
         console.log(`Searching: ${query}`);
         try {
             const response = await fetch(`${this.serverUrl}/api/youtube-search`, {
@@ -217,7 +322,8 @@ class GlobalMusicPlayer {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ query })
+                body: JSON.stringify({ query }),
+                timeout: 10000
             });
             
             if (!response.ok) {
@@ -235,140 +341,133 @@ class GlobalMusicPlayer {
     async addSong() {
         const name = this.songNameInput.value.trim();
         const artist = this.artistNameInput.value.trim();
-        if (!name || !artist) return alert('Please enter both song name and artist');
-
-        this.addSongBtn.disabled = true;
-        this.addSongBtn.textContent = 'Searching...';
-
-        let videoId = null;
-        if (this.useYouTube) {
-            videoId = await this.searchYouTube(`${name} ${artist}`);
+        
+        if (!name || !artist) {
+            this.showMessage('Please enter both song name and artist');
+            return;
         }
 
-        const song = { name, artist, videoId };
-        
-        // Emit to server instead of adding locally
-        this.socket.emit('add-song', song);
+        this.addSongBtn.disabled = true;
+        this.addSongBtn.textContent = 'Adding...';
 
-        this.songNameInput.value = '';
-        this.artistNameInput.value = '';
-        this.addSongBtn.disabled = false;
-        this.addSongBtn.textContent = 'Add to Queue';
+        try {
+            let videoId = null;
+            
+            // Try to search YouTube if connected
+            if (this.isConnected && this.useYouTube) {
+                this.addSongBtn.textContent = 'Searching YouTube...';
+                videoId = await this.searchYouTube(`${name} ${artist}`);
+            }
+
+            const song = { name, artist, videoId };
+            
+            if (this.isConnected && this.socket) {
+                // Send to server if connected
+                this.socket.emit('add-song', song);
+                this.showMessage(`Added "${name}" by ${artist} to the global playlist!`, 'success');
+            } else {
+                // Add locally in offline mode
+                this.playlist.push(song);
+                this.updatePlaylist();
+                this.updateStats();
+                this.showMessage(`Added "${name}" by ${artist} to local playlist (offline mode)`, 'success');
+                
+                // If this is the first song, set it as current
+                if (this.playlist.length === 1) {
+                    this.currentSongIndex = 0;
+                    this.updateCurrentSong();
+                }
+            }
+
+            this.songNameInput.value = '';
+            this.artistNameInput.value = '';
+            
+        } catch (error) {
+            console.error('Error adding song:', error);
+            this.showMessage('Failed to add song. Please try again.');
+        } finally {
+            this.addSongBtn.disabled = false;
+            this.addSongBtn.textContent = 'Add to Queue';
+        }
     }
 
     playSong(index) {
-        if (!this.playerReady) return alert('Player is not ready yet');
+        if (index < 0 || index >= this.playlist.length) return;
         
-        this.isInitiator = true;
-        this.socket.emit('change-song', index);
+        if (this.isConnected && this.socket) {
+            this.isInitiator = true;
+            this.socket.emit('change-song', index);
+        } else {
+            // Handle locally in offline mode
+            this.currentSongIndex = index;
+            this.currentTime = 0;
+            this.updateCurrentSong();
+            this.updatePlaylist();
+            this.syncPlayback();
+        }
     }
 
     togglePlay() {
-        if (!this.playerReady) return alert('Player not ready yet');
-        if (!this.playlist.length) return alert('Add songs to the playlist first');
+        if (!this.playlist.length) {
+            this.showMessage('Add songs to the playlist first');
+            return;
+        }
+
+        if (this.currentSongIndex < 0) {
+            this.currentSongIndex = 0;
+            this.updateCurrentSong();
+        }
         
-        this.isInitiator = true;
-        
-        if (this.isPlaying) {
-            this.socket.emit('pause');
+        if (this.isConnected && this.socket) {
+            this.isInitiator = true;
+            if (this.isPlaying) {
+                this.socket.emit('pause');
+            } else {
+                this.socket.emit('play');
+            }
         } else {
-            this.socket.emit('play');
+            // Handle locally in offline mode
+            this.isPlaying = !this.isPlaying;
+            this.syncPlayback();
         }
     }
 
     nextSong() {
         if (!this.playlist.length) return;
         
-        this.isInitiator = true;
-        this.socket.emit('next-song');
+        if (this.isConnected && this.socket) {
+            this.isInitiator = true;
+            this.socket.emit('next-song');
+        } else {
+            // Handle locally in offline mode
+            this.currentSongIndex = (this.currentSongIndex + 1) % this.playlist.length;
+            this.currentTime = 0;
+            this.updateCurrentSong();
+            this.updatePlaylist();
+            this.syncPlayback();
+        }
     }
 
     previousSong() {
         if (!this.playlist.length) return;
         
-        this.isInitiator = true;
-        this.socket.emit('previous-song');
+        if (this.isConnected && this.socket) {
+            this.isInitiator = true;
+            this.socket.emit('previous-song');
+        } else {
+            // Handle locally in offline mode
+            this.currentSongIndex = (this.currentSongIndex - 1 + this.playlist.length) % this.playlist.length;
+            this.currentTime = 0;
+            this.updateCurrentSong();
+            this.updatePlaylist();
+            this.syncPlayback();
+        }
     }
 
     removeSong(index) {
-        this.socket.emit('remove-song', index);
-    }
-
-    startProgress() {
-        this.stopProgress();
-        this.progressInterval = setInterval(() => {
-            if (this.useYouTube && this.player) {
-                try {
-                    this.currentTime = Math.floor(this.player.getCurrentTime());
-                    this.totalTime = Math.floor(this.player.getDuration()) || 0;
-                    
-                    // Send time update to server occasionally
-                    if (Math.floor(this.currentTime) % 5 === 0) {
-                        this.socket.emit('time-update', this.currentTime);
-                    }
-                } catch (e) {
-                    console.error('Error getting player time:', e);
-                }
-            } else {
-                this.currentTime += 1;
-                if (this.currentTime >= this.totalTime) {
-                    this.nextSong();
-                    return;
-                }
-            }
-            this.updateProgress();
-        }, 1000);
-    }
-
-    stopProgress() {
-        if (this.progressInterval) clearInterval(this.progressInterval);
-    }
-
-    updateProgress() {
-        const percent = (this.currentTime / this.totalTime) * 100;
-        this.progressFill.style.width = `${Math.min(percent, 100)}%`;
-        this.currentTimeEl.textContent = this.formatTime(this.currentTime);
-        this.totalTimeEl.textContent = this.formatTime(this.totalTime);
-    }
-
-    formatTime(seconds) {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    }
-
-    updateCurrentSong() {
-        const song = this.playlist[this.currentSongIndex];
-        this.currentSongEl.textContent = song ? `${song.name} - ${song.artist}` : 'No song playing';
-    }
-
-    updatePlaylist() {
-        this.playlistContainer.innerHTML = '';
-        this.playlist.forEach((song, i) => {
-            const item = document.createElement('div');
-            item.className = 'playlist-item';
-            if (i === this.currentSongIndex) item.classList.add('current');
-            item.innerHTML = `
-                <div><b>${song.name}</b> - ${song.artist}</div>
-                <button onclick="player.removeSong(${i})">Remove</button>`;
-            item.addEventListener('click', (e) => {
-                if (!e.target.matches('button')) this.playSong(i);
-            });
-            this.playlistContainer.appendChild(item);
-        });
-    }
-
-    updateStats() {
-        this.totalSongsEl.textContent = this.playlist.length;
-    }
-}
-
-// Load Socket.IO library
-const script = document.createElement('script');
-script.src = 'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js';
-script.onload = () => {
-    document.addEventListener('DOMContentLoaded', () => {
-        window.player = new GlobalMusicPlayer();
-    });
-};
-document.head.appendChild(script);
+        if (this.isConnected && this.socket) {
+            this.socket.emit('remove-song', index);
+        } else {
+            // Handle locally in offline mode
+            if (index >= 0 && index < this.playlist.length) {
+                const removedSong = this.playlist.splice(index, 1)[0
