@@ -470,4 +470,141 @@ class GlobalMusicPlayer {
         } else {
             // Handle locally in offline mode
             if (index >= 0 && index < this.playlist.length) {
-                const removedSong = this.playlist.splice(index, 1)[0
+                const removedSong = this.playlist.splice(index, 1)[0];
+                
+                // Adjust current song index if needed
+                if (index === this.currentSongIndex) {
+                    if (this.playlist.length > 0) {
+                        this.currentSongIndex = index >= this.playlist.length ? 0 : index;
+                    } else {
+                        this.currentSongIndex = -1;
+                        this.isPlaying = false;
+                    }
+                } else if (index < this.currentSongIndex) {
+                    this.currentSongIndex--;
+                }
+                
+                this.updatePlaylist();
+                this.updateCurrentSong();
+                this.updateStats();
+                this.showMessage(`Removed "${removedSong.name}" from playlist`, 'success');
+            }
+        }
+    }
+
+    updatePlaylist() {
+        this.playlistContainer.innerHTML = '';
+        
+        if (this.playlist.length === 0) {
+            this.playlistContainer.innerHTML = '<p style="text-align: center; color: #6c757d;">No songs in playlist</p>';
+            return;
+        }
+
+        this.playlist.forEach((song, index) => {
+            const item = document.createElement('div');
+            item.className = `playlist-item ${index === this.currentSongIndex ? 'current' : ''}`;
+            item.innerHTML = `
+                <div class="song-info">
+                    <div class="song-name">${song.name}</div>
+                    <div class="song-artist">${song.artist}</div>
+                </div>
+                <button class="remove-btn" onclick="musicPlayer.removeSong(${index})">Remove</button>
+            `;
+            
+            item.addEventListener('click', (e) => {
+                if (!e.target.classList.contains('remove-btn')) {
+                    this.playSong(index);
+                }
+            });
+            
+            this.playlistContainer.appendChild(item);
+        });
+    }
+
+    updateCurrentSong() {
+        if (this.currentSongIndex >= 0 && this.currentSongIndex < this.playlist.length) {
+            const song = this.playlist[this.currentSongIndex];
+            this.currentSongEl.textContent = `${song.name} - ${song.artist}`;
+        } else {
+            this.currentSongEl.textContent = 'Add a song to get started!';
+        }
+    }
+
+    updateStats() {
+        this.totalSongsEl.textContent = this.playlist.length;
+    }
+
+    startProgress() {
+        this.stopProgress();
+        this.progressInterval = setInterval(() => {
+            if (this.useYouTube && this.player && this.player.getCurrentTime) {
+                try {
+                    this.currentTime = this.player.getCurrentTime();
+                    this.totalTime = this.player.getDuration() || 180;
+                } catch (error) {
+                    console.error('Error getting player time:', error);
+                }
+            } else {
+                // Simulation mode
+                this.currentTime += 1;
+                if (this.currentTime >= this.totalTime) {
+                    this.nextSong();
+                    return;
+                }
+            }
+            
+            this.updateProgressBar();
+            this.updateTimeDisplay();
+            
+            // Send time updates to server (throttled)
+            if (this.isConnected && this.socket && this.currentTime % 5 === 0) {
+                this.socket.emit('time-update', this.currentTime);
+            }
+        }, 1000);
+    }
+
+    stopProgress() {
+        if (this.progressInterval) {
+            clearInterval(this.progressInterval);
+            this.progressInterval = null;
+        }
+    }
+
+    updateProgressBar() {
+        const progressPercent = (this.currentTime / this.totalTime) * 100;
+        this.progressFill.style.width = `${Math.min(progressPercent, 100)}%`;
+    }
+
+    updateTimeDisplay() {
+        this.currentTimeEl.textContent = this.formatTime(this.currentTime);
+        this.totalTimeEl.textContent = this.formatTime(this.totalTime);
+    }
+
+    formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+}
+
+// Initialize the music player when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // Load Socket.IO from CDN
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js';
+    script.onload = () => {
+        console.log('Socket.IO loaded');
+        window.musicPlayer = new GlobalMusicPlayer();
+    };
+    script.onerror = () => {
+        console.log('Socket.IO failed to load, starting in offline mode');
+        // Create a mock io object for offline mode
+        window.io = () => ({
+            on: () => {},
+            emit: () => {},
+            disconnect: () => {}
+        });
+        window.musicPlayer = new GlobalMusicPlayer();
+    };
+    document.head.appendChild(script);
+});
