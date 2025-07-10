@@ -35,6 +35,42 @@ h1 {
     background-clip: text;
 }
 
+/* Connection Status */
+.connection-status {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-dot.connected {
+    background: #28a745;
+    box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
+}
+
+.status-dot.disconnected {
+    background: #dc3545;
+    box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
+}
+
+.status-dot.connecting {
+    background: #ffc107;
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+    animation: pulse 2s ease-in-out infinite;
+}
+
 .player-section {
     background: #f8f9fa;
     border-radius: 15px;
@@ -85,6 +121,12 @@ h1 {
 
 .control-btn:active {
     transform: translateY(0);
+}
+
+.control-btn:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+    transform: none;
 }
 
 .progress-bar {
@@ -168,6 +210,12 @@ h1 {
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
+.add-btn:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .playlist {
     background: #f8f9fa;
     border-radius: 15px;
@@ -193,6 +241,7 @@ h1 {
     align-items: center;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
+    cursor: pointer;
 }
 
 .playlist-item:hover {
@@ -253,10 +302,38 @@ h1 {
     font-size: 0.9em;
 }
 
+/* Error Messages */
+.error-message {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 20px;
+    border: 1px solid #f1b0b7;
+    text-align: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.success-message {
+    background: #d4edda;
+    color: #155724;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 20px;
+    border: 1px solid #c3e6cb;
+    text-align: center;
+    animation: fadeIn 0.3s ease;
+}
+
 @keyframes pulse {
     0% { transform: scale(1); }
     50% { transform: scale(1.05); }
     100% { transform: scale(1); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .playing {
