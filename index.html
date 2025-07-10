@@ -12,8 +12,8 @@
         
         <!-- Connection Status -->
         <div class="connection-status" id="connectionStatus">
-            <span id="statusText">Connecting...</span>
-            <span id="statusDot" class="status-dot connecting"></span>
+            <span id="statusText">Offline Mode</span>
+            <span id="statusDot" class="status-dot disconnected"></span>
         </div>
         
         <div class="player-section">
@@ -21,18 +21,24 @@
             <div class="song-title" id="currentSong">Add a song to get started!</div>
             
             <div class="controls">
-                <button class="control-btn" id="prevBtn">⏮️</button>
-                <button class="control-btn" id="playBtn">▶️</button>
-                <button class="control-btn" id="nextBtn">⏭️</button>
+                <button class="control-btn" id="prevBtn" title="Previous">⏮️</button>
+                <button class="control-btn" id="playBtn" title="Play/Pause">▶️</button>
+                <button class="control-btn" id="nextBtn" title="Next">⏭️</button>
             </div>
             
-            <div class="progress-bar">
+            <div class="progress-bar" id="progressBar">
                 <div class="progress-fill" id="progressFill"></div>
             </div>
             
             <div class="time-display">
                 <span id="currentTime">0:00</span>
                 <span id="totalTime">0:00</span>
+            </div>
+
+            <div class="volume-control">
+                <span>🔊</span>
+                <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="50">
+                <span id="volumeValue">50%</span>
             </div>
         </div>
         
@@ -50,7 +56,7 @@
         </div>
         
         <div class="playlist">
-            <h2>Global Playlist</h2>
+            <h2>Playlist</h2>
             <div id="playlistContainer">
                 <!-- Playlist items will be added here -->
             </div>
@@ -59,8 +65,8 @@
             </div>
         </div>
         
-        <!-- Error Messages -->
-        <div class="error-message" id="errorMessage" style="display: none;"></div>
+        <!-- Message Container -->
+        <div class="message" id="messageContainer" style="display: none;"></div>
     </div>
 
     <script src="script.js"></script>
