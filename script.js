@@ -12,10 +12,11 @@ class GlobalMusicPlayer {
         this.lastEventTime = 0;
         this.eventThrottleDelay = 100;
         
-        // WebSocket connection
+        // WebSocket connection - Updated to use Render URL
         this.socket = null;
         this.isConnected = false;
-        this.serverUrl = 'http://localhost:3001'; // Change this to your server URL
+        // Replace 'your-app-name' with your actual Render app name
+        this.serverUrl = 'https://global-music-player.onrender.com'; // Change this to your Render URL
         
         this.initializeElements();
         this.bindEvents();
@@ -69,7 +70,17 @@ class GlobalMusicPlayer {
 
     initializeSocket() {
         try {
-            this.socket = io(this.serverUrl);
+            // Configure socket.io for Render deployment
+            this.socket = io(this.serverUrl, {
+                transports: ['websocket', 'polling'],
+                timeout: 20000,
+                forceNew: true,
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
+                maxReconnectionAttempts: 5
+            });
             
             this.socket.on('connect', () => {
                 this.isConnected = true;
@@ -87,6 +98,16 @@ class GlobalMusicPlayer {
 
             this.socket.on('connect_error', (error) => {
                 console.error('Connection error:', error);
+                this.fallbackToOfflineMode();
+            });
+
+            this.socket.on('reconnect_error', (error) => {
+                console.error('Reconnection error:', error);
+                this.fallbackToOfflineMode();
+            });
+
+            this.socket.on('reconnect_failed', () => {
+                console.error('Reconnection failed');
                 this.fallbackToOfflineMode();
             });
 
