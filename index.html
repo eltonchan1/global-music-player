@@ -12,8 +12,8 @@
         
         <!-- Connection Status -->
         <div class="connection-status" id="connectionStatus">
-            <span id="statusText">Offline Mode</span>
-            <span id="statusDot" class="status-dot disconnected"></span>
+            <span id="statusText">Local Mode</span>
+            <span id="statusDot" class="status-dot connected"></span>
         </div>
         
         <div class="player-section">
@@ -41,9 +41,24 @@
                 <span id="volumeValue">50%</span>
             </div>
         </div>
+
+        <!-- Sample Songs -->
+        <div class="sample-songs">
+            <h3>🎵 Try Sample Songs</h3>
+            <button class="sample-btn" onclick="addSampleSong('Clair de Lune', 'Claude Debussy')">Classical</button>
+            <button class="sample-btn" onclick="addSampleSong('Ambient Dreams', 'Nature Sounds')">Ambient</button>
+            <button class="sample-btn" onclick="addSampleSong('Jazz Cafe', 'Smooth Jazz')">Jazz</button>
+            <button class="sample-btn" onclick="addSampleSong('Electronic Vibes', 'Synthwave')">Electronic</button>
+        </div>
         
         <div class="add-song-section">
             <h2>Add a Song</h2>
+            
+            <div class="file-input">
+                <label for="audioFile">Upload Audio File (MP3, WAV, OGG)</label>
+                <input type="file" id="audioFile" accept="audio/*">
+            </div>
+            
             <div class="input-group">
                 <label for="songName">Song Name</label>
                 <input type="text" id="songName" placeholder="Enter song name">
@@ -52,7 +67,7 @@
                 <label for="artistName">Artist</label>
                 <input type="text" id="artistName" placeholder="Enter artist name">
             </div>
-            <button class="add-btn" id="addSongBtn">Add to Queue</button>
+            <button class="add-btn" id="addSongBtn">Add to Playlist</button>
         </div>
         
         <div class="playlist">
@@ -61,12 +76,15 @@
                 <!-- Playlist items will be added here -->
             </div>
             <div class="stats">
-                <span id="totalSongs">0</span> songs in queue
+                <span id="totalSongs">0</span> songs in playlist
             </div>
         </div>
         
         <!-- Message Container -->
         <div class="message" id="messageContainer" style="display: none;"></div>
+        
+        <!-- Hidden Audio Player -->
+        <audio id="audioPlayer" class="audio-player" preload="metadata"></audio>
     </div>
 
     <script src="script.js"></script>
