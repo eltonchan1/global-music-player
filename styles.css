@@ -152,6 +152,41 @@ h1 {
     font-size: 0.9em;
 }
 
+.volume-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.volume-slider {
+    flex: 1;
+    height: 4px;
+    background: #e9ecef;
+    border-radius: 2px;
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: #667eea;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: #667eea;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
 .add-song-section {
     background: #f8f9fa;
     border-radius: 15px;
@@ -210,10 +245,17 @@ h1 {
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
-.add-btn:disabled {
-    background: #6c757d;
-    cursor: not-allowed;
-    transform: none;
+.file-input {
+    margin-bottom: 15px;
+}
+
+.file-input input[type="file"] {
+    width: 100%;
+    padding: 10px;
+    border: 2px dashed #667eea;
+    border-radius: 8px;
+    background: #f8f9fa;
+    cursor: pointer;
 }
 
 .playlist {
@@ -343,37 +385,36 @@ h1 {
     animation: pulse 2s ease-in-out infinite;
 }
 
-.volume-control {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 15px;
+.audio-player {
+    display: none;
 }
 
-.volume-slider {
-    flex: 1;
-    height: 4px;
-    background: #e9ecef;
-    border-radius: 2px;
-    outline: none;
-    -webkit-appearance: none;
+.sample-songs {
+    background: #e3f2fd;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid #bbdefb;
 }
 
-.volume-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 16px;
-    height: 16px;
-    background: #667eea;
-    border-radius: 50%;
-    cursor: pointer;
+.sample-songs h3 {
+    color: #1565c0;
+    margin-bottom: 10px;
+    font-size: 1.1em;
 }
 
-.volume-slider::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
-    background: #667eea;
-    border-radius: 50%;
-    cursor: pointer;
+.sample-btn {
+    background: #2196f3;
+    color: white;
     border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin: 5px;
+    font-size: 0.9em;
+    transition: background 0.3s ease;
+}
+
+.sample-btn:hover {
+    background: #1976d2;
 }
